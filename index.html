@@ -110,6 +110,11 @@
         .btn-input { background-color: #6c757d; }
         .btn-input:hover { background-color: #5a6268; }
 
+        /* Nút Duyệt Ngược */
+        .btn-traverse { background-color: #6610f2; width: 160px; }
+        .btn-traverse:hover { background-color: #520dc2; transform: translateY(-2px); }
+        .btn-traverse.active { background-color: #e83e8c; } /* Màu hồng khi kích hoạt Reverse */
+
         button:disabled, select:disabled, input[type=range]:disabled { 
             background-color: #444 !important; 
             cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: none; color: #aaa; border-color: #444;
@@ -122,7 +127,7 @@
         /* --- MAIN DISPLAY LAYOUT --- */
         #main-display {
             display: flex;
-            flex-direction: row; /* Mặc định là hàng ngang */
+            flex-direction: row;
             width: 98%;
             gap: 10px;
             align-items: flex-start;
@@ -130,19 +135,13 @@
             transition: all 0.3s ease;
         }
 
-        /* Chế độ xem Bar */
         .mode-bar #visualizer-container { width: 100%; display: flex; }
         .mode-bar #tree-view { display: none; }
-
-        /* Chế độ xem Tree */
         .mode-tree #visualizer-container { display: none; }
         .mode-tree #tree-view { width: 100%; display: flex; }
-
-        /* Chế độ xem Both (50-50) */
         .mode-both #visualizer-container { width: 50%; display: flex; }
         .mode-both #tree-view { width: 50%; display: flex; }
 
-        /* KHUNG BAR CHART */
         #visualizer-container {
             align-items: flex-end;
             justify-content: center;
@@ -180,9 +179,8 @@
             font-size: 12px; font-weight: bold; padding: 3px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
-        /* KHUNG TREE VIEW (SVG) */
         #tree-view {
-            height: var(--container-height); /* Cùng chiều cao với Bar */
+            height: var(--container-height);
             background-color: #252525;
             border-radius: 8px;
             justify-content: center;
@@ -191,20 +189,17 @@
             position: relative;
             box-sizing: border-box;
             transition: width 0.3s;
-            display: none; /* Ẩn mặc định */
+            display: none;
         }
         #tree-svg { width: 100%; height: 100%; min-width: 600px; }
         
-        /* Node trên cây */
         .tree-node circle { fill: #4db8ff; stroke: #fff; stroke-width: 2px; transition: fill 0.2s; }
         .tree-node text { fill: white; font-weight: bold; font-size: 14px; text-anchor: middle; dominant-baseline: middle; }
         .tree-line { stroke: #666; stroke-width: 2px; }
         
-        /* Mũi tên trên cây */
         .tree-arrow-compare { stroke: #ffa502; stroke-width: 3px; fill: none; marker-end: url(#arrowhead-compare); stroke-dasharray: 5,5; }
         .tree-arrow-swap { stroke: #ff4757; stroke-width: 3px; fill: none; marker-end: url(#arrowhead-swap); }
 
-        /* KHUNG LOG TABLE */
         #log-container {
             width: 98%;
             max-height: 200px;
@@ -224,7 +219,6 @@
         .log-step { color: #28a745; font-weight: bold; width: 15%; }
         .log-array { font-family: 'Consolas', monospace; color: #4db8ff; }
 
-        /* Colors */
         .idx-i { background-color: #ff4757; color: white; }
         .idx-j { background-color: #2ed573; color: white; }
         .idx-min { background-color: #ffa502; color: black; }
@@ -237,13 +231,11 @@
         .special { background-color: #a55eea !important; }
         .overwrite { background-color: #ff7f50 !important; }
         
-        /* Màu trên cây */
         .tree-node.comparing circle { fill: #ffa502; }
         .tree-node.swapping circle { fill: #ff4757; }
         .tree-node.sorted circle { fill: #2ed573; }
         .tree-node.special circle { fill: #a55eea; }
 
-        /* MODAL */
         #modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 1000; display: none;
@@ -266,7 +258,9 @@
 
     </style>
 </head>
-<body class="mode-bar"> <h1>Sort Visualizer V7.0</h1>
+<body class="mode-bar">
+
+    <h1>Sort Visualizer V7.1</h1>
 
     <div class="control-panel">
         <div class="group">
@@ -276,6 +270,8 @@
         </div>
 
         <div class="group">
+            <button id="btn-traverse" class="btn-traverse" onclick="toggleTraversal()">Kiểu duyệt: Xuôi</button>
+            
             <select id="sort-order" onchange="updateSortOrder()">
                 <option value="asc">Tăng dần</option>
                 <option value="desc">Giảm dần</option>
@@ -299,7 +295,7 @@
             <button class="btn-algo" onclick="runAlgo('selection')">Selection</button>
             <button class="btn-algo" onclick="runAlgo('insertion')">Insertion</button>
             <button class="btn-algo" onclick="runAlgo('shell')">Shell</button>
-            <button class="btn-algo" onclick="runAlgo('heap')">Heap</button>
+            <button class="btn-algo" onclick="runAlgo('heap')">Heap (Tree)</button>
             <button class="btn-algo" onclick="runAlgo('merge')">Merge</button>
             <button class="btn-algo" onclick="runAlgo('quick')">Quick</button>
         </div>
@@ -309,7 +305,6 @@
 
     <div id="main-display">
         <div id="visualizer-container"></div>
-        
         <div id="tree-view">
             <svg id="tree-svg">
                 <defs>
@@ -349,6 +344,7 @@
     </div>
 
     <script>
+        /* CORE VARIABLES */
         const container = document.getElementById("visualizer-container");
         const statusBoard = document.getElementById("status-board");
         const userInput = document.getElementById("user-input");
@@ -358,6 +354,7 @@
         const treeSvg = document.getElementById("tree-svg");
         const logBody = document.getElementById("log-body");
         const modal = document.getElementById("modal-overlay");
+        const btnTraverse = document.getElementById("btn-traverse");
 
         let bars = []; 
         let isRunning = false;
@@ -368,21 +365,16 @@
         let isAscending = true; 
         let delayTime = 400;
         let currentAlgoName = "";
-        let currentViewMode = "bar"; // bar, tree, both
-        let resolveModal = null; // Promise cho modal
+        let currentViewMode = "bar"; 
+        let resolveModal = null; 
+        let isBackwards = false; // Trạng thái duyệt ngược (New)
 
         /* --- SYNC & CONTROL --- */
         async function wait() {
             if (abortController && abortController.signal.aborted) return Promise.reject(new Error("ABORT"));
-            
-            // Vẽ lại cây nếu đang ở chế độ có Tree
             if (currentAlgoName === 'heap' && currentViewMode !== 'bar') drawHeapTree();
-
-            if (isPaused) {
-                await new Promise(resolve => resolveStep = resolve);
-            } else {
-                await new Promise(resolve => setTimeout(resolve, delayTime));
-            }
+            if (isPaused) await new Promise(resolve => resolveStep = resolve);
+            else await new Promise(resolve => setTimeout(resolve, delayTime));
             if (abortController && abortController.signal.aborted) return Promise.reject(new Error("ABORT"));
         }
 
@@ -391,232 +383,125 @@
             delayTime = 1010 - (val * 10); 
         }
 
-        function pauseAnimation() {
-            if (!isRunning) return;
-            isPaused = true;
-            toggleControlButtons(true);
-            statusBoard.innerText = "TẠM DỪNG";
-        }
-
-        function resumeAnimation() {
-            if (!isRunning) return;
-            isPaused = false;
-            if (resolveStep) { resolveStep(); resolveStep = null; }
-            toggleControlButtons(false);
-            statusBoard.innerText = "Đang chạy...";
-        }
-
-        function stepAnimation() {
-            if (!isRunning || !isPaused) return;
-            if (resolveStep) { resolveStep(); resolveStep = null; }
-        }
+        function pauseAnimation() { if (!isRunning) return; isPaused = true; toggleControlButtons(true); statusBoard.innerText = "TẠM DỪNG"; }
+        function resumeAnimation() { if (!isRunning) return; isPaused = false; if (resolveStep) { resolveStep(); resolveStep = null; } toggleControlButtons(false); statusBoard.innerText = "Đang chạy..."; }
+        function stepAnimation() { if (!isRunning || !isPaused) return; if (resolveStep) { resolveStep(); resolveStep = null; } }
 
         function resetSystem() {
             if (abortController) abortController.abort();
             setTimeout(() => {
-                isRunning = false;
-                isPaused = false;
-                resolveStep = null;
+                isRunning = false; isPaused = false; resolveStep = null;
                 document.body.classList.remove("running");
-                
                 document.querySelectorAll("button").forEach(b => b.disabled = false);
                 sortOrderSelect.disabled = false;
+                // Không reset isBackwards để giữ lựa chọn của user
+                btnTraverse.disabled = false; 
                 
                 document.getElementById('btn-pause').disabled = true;
                 document.getElementById('btn-resume').disabled = true;
                 document.getElementById('btn-step').disabled = true;
-
-                // Reset View Mode về Bar
                 document.body.className = "mode-bar";
-                currentViewMode = "bar";
-                currentAlgoName = "";
-                
-                clearVisualStyles();
-                clearLogs();
+                currentViewMode = "bar"; currentAlgoName = "";
+                clearVisualStyles(); clearLogs();
                 statusBoard.innerText = "Đã Reset.";
             }, 100);
         }
 
         function updateSortOrder() {
             isAscending = sortOrderSelect.value === 'asc';
-            statusBoard.innerText = isAscending ? "Đã chọn: Tăng dần" : "Đã chọn: Giảm dần";
+            statusBoard.innerText = `Thứ tự: ${isAscending ? 'Tăng dần' : 'Giảm dần'}`;
+        }
+
+        // HÀM MỚI: Bật tắt kiểu duyệt
+        function toggleTraversal() {
+            isBackwards = !isBackwards;
+            if (isBackwards) {
+                btnTraverse.classList.add("active");
+                btnTraverse.innerText = "Kiểu duyệt: Ngược";
+            } else {
+                btnTraverse.classList.remove("active");
+                btnTraverse.innerText = "Kiểu duyệt: Xuôi";
+            }
         }
 
         /* --- MODAL LOGIC --- */
-        function showViewModal() {
-            return new Promise(resolve => {
-                modal.style.display = "flex";
-                resolveModal = resolve;
-            });
-        }
-
-        function selectViewMode(mode) {
-            modal.style.display = "none";
-            document.body.className = `mode-${mode}`;
-            currentViewMode = mode;
-            if(resolveModal) resolveModal();
-        }
+        function showViewModal() { return new Promise(resolve => { modal.style.display = "flex"; resolveModal = resolve; }); }
+        function selectViewMode(mode) { modal.style.display = "none"; document.body.className = `mode-${mode}`; currentViewMode = mode; if(resolveModal) resolveModal(); }
 
         /* --- DOM & RENDERING --- */
-        function clearVisualStyles() {
-            bars.forEach(b => {
-                b.bar.className = 'bar';
-                b.indicatorDiv.innerHTML = '';
-            });
-        }
-
-        function toggleControlButtons(paused) {
-            document.getElementById('btn-pause').disabled = paused;
-            document.getElementById('btn-resume').disabled = !paused;
-            document.getElementById('btn-step').disabled = !paused;
-        }
-
+        function clearVisualStyles() { bars.forEach(b => { b.bar.className = 'bar'; b.indicatorDiv.innerHTML = ''; }); }
+        function toggleControlButtons(paused) { document.getElementById('btn-pause').disabled = paused; document.getElementById('btn-resume').disabled = !paused; document.getElementById('btn-step').disabled = !paused; }
+        
         function calculateHeight(value, maxVal) {
-            const MAX_HEIGHT_PX = 300; 
-            const MIN_HEIGHT_PX = 40; 
+            const MAX_HEIGHT_PX = 300; const MIN_HEIGHT_PX = 40; 
             if (maxVal === 0) return MIN_HEIGHT_PX;
             let percent = value / maxVal;
-            let height = percent * MAX_HEIGHT_PX;
-            return Math.max(height, MIN_HEIGHT_PX);
+            return Math.max(percent * MAX_HEIGHT_PX, MIN_HEIGHT_PX);
         }
 
         function createBarDOM(value, maxVal) {
-            const wrapper = document.createElement("div");
-            wrapper.classList.add("bar-wrapper");
-
-            const label = document.createElement("div");
-            label.classList.add("bar-val");
-            label.innerText = value;
-
-            const bar = document.createElement("div");
-            bar.classList.add("bar");
-            const h = calculateHeight(value, maxVal);
-            bar.style.height = `${h}px`;
-
-            const delBtn = document.createElement("div");
-            delBtn.classList.add("delete-icon");
-            delBtn.innerHTML = "&times;";
-            delBtn.onclick = () => deleteBar(wrapper);
-
-            const indicatorDiv = document.createElement("div");
-            indicatorDiv.classList.add("indicator-container");
-
-            wrapper.appendChild(label);
-            wrapper.appendChild(bar);
-            wrapper.appendChild(delBtn);
-            wrapper.appendChild(indicatorDiv);
+            const wrapper = document.createElement("div"); wrapper.classList.add("bar-wrapper");
+            const label = document.createElement("div"); label.classList.add("bar-val"); label.innerText = value;
+            const bar = document.createElement("div"); bar.classList.add("bar"); bar.style.height = `${calculateHeight(value, maxVal)}px`;
+            const delBtn = document.createElement("div"); delBtn.classList.add("delete-icon"); delBtn.innerHTML = "&times;"; delBtn.onclick = () => deleteBar(wrapper);
+            const indicatorDiv = document.createElement("div"); indicatorDiv.classList.add("indicator-container");
+            wrapper.append(label, bar, delBtn, indicatorDiv);
             container.appendChild(wrapper);
-
-            const barObj = { wrapper, bar, label, value, indicatorDiv };
-            bars.push(barObj);
-            return barObj;
+            bars.push({ wrapper, bar, label, value, indicatorDiv });
         }
 
         function deleteBar(wrapperDOM) {
             if (isRunning) return;
             const idx = bars.findIndex(b => b.wrapper === wrapperDOM);
-            if (idx !== -1) {
-                bars.splice(idx, 1);
-                wrapperDOM.remove();
-            }
+            if (idx !== -1) { bars.splice(idx, 1); wrapperDOM.remove(); }
         }
 
-        /* --- LOG TABLE --- */
-        function clearLogs() {
-            logBody.innerHTML = "";
-        }
-
+        /* --- LOG TABLE & TREE --- */
+        function clearLogs() { logBody.innerHTML = ""; }
         function addLog(stepName) {
             const tr = document.createElement("tr");
-            const tdStep = document.createElement("td");
-            tdStep.classList.add("log-step");
-            tdStep.innerText = stepName;
-            const tdArray = document.createElement("td");
-            tdArray.classList.add("log-array");
-            const currentValues = bars.map(b => b.value).join(", ");
-            tdArray.innerText = `[ ${currentValues} ]`;
-            tr.appendChild(tdStep);
-            tr.appendChild(tdArray);
+            tr.innerHTML = `<td class="log-step">${stepName}</td><td class="log-array">[ ${bars.map(b => b.value).join(", ")} ]</td>`;
             logBody.appendChild(tr);
             document.getElementById("log-container").scrollTop = document.getElementById("log-container").scrollHeight;
         }
 
-        /* --- TREE VISUALIZATION (ENHANCED) --- */
-        // Biến lưu trữ các mũi tên cần vẽ trên cây
         let treeArrows = []; 
-
         function drawHeapTree() {
-            // Giữ lại defs (markers)
-            const defs = treeSvg.querySelector('defs').outerHTML;
-            treeSvg.innerHTML = defs;
-            
+            const defs = treeSvg.querySelector('defs').outerHTML; treeSvg.innerHTML = defs;
             if (bars.length === 0) return;
-
             const canvasWidth = treeView.clientWidth || 600;
-            // Tính toán tọa độ
             bars.forEach((barObj, index) => {
                 const depth = Math.floor(Math.log2(index + 1));
                 const posInLevel = index - Math.pow(2, depth) + 1;
-                // Chuẩn hóa vị trí X cho cây nhị phân cân bằng
-                // Chia chiều rộng thành 2^(depth+1) phần
-                const slots = Math.pow(2, depth + 1);
-                const section = canvasWidth / slots;
-                const realX = section * (2 * posInLevel + 1);
-                const realY = depth * 70 + 40;
-
-                barObj.treeX = realX;
-                barObj.treeY = realY;
-
-                // Vẽ đường nối
+                const section = canvasWidth / Math.pow(2, depth + 1);
+                barObj.treeX = section * (2 * posInLevel + 1);
+                barObj.treeY = depth * 70 + 40;
                 if (index > 0) {
                     const parentIdx = Math.floor((index - 1) / 2);
                     const parent = bars[parentIdx];
                     if (parent) {
                         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                        line.setAttribute("x1", parent.treeX);
-                        line.setAttribute("y1", parent.treeY);
-                        line.setAttribute("x2", realX);
-                        line.setAttribute("y2", realY);
+                        line.setAttribute("x1", parent.treeX); line.setAttribute("y1", parent.treeY);
+                        line.setAttribute("x2", barObj.treeX); line.setAttribute("y2", barObj.treeY);
                         line.setAttribute("class", "tree-line");
                         treeSvg.appendChild(line);
                     }
                 }
             });
-
-            // Vẽ Nodes
             bars.forEach((barObj, index) => {
                 const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                group.setAttribute("class", "tree-node");
-                if (barObj.bar.classList.contains("comparing")) group.classList.add("comparing");
-                if (barObj.bar.classList.contains("swapping")) group.classList.add("swapping");
-                if (barObj.bar.classList.contains("sorted")) group.classList.add("sorted");
-                if (barObj.bar.classList.contains("special")) group.classList.add("special");
-
+                group.setAttribute("class", "tree-node " + barObj.bar.className.replace("bar", ""));
                 const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                circle.setAttribute("cx", barObj.treeX);
-                circle.setAttribute("cy", barObj.treeY);
-                circle.setAttribute("r", 20);
-
+                circle.setAttribute("cx", barObj.treeX); circle.setAttribute("cy", barObj.treeY); circle.setAttribute("r", 20);
                 const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                text.setAttribute("x", barObj.treeX);
-                text.setAttribute("y", barObj.treeY);
-                text.textContent = barObj.value;
-
-                group.appendChild(circle);
-                group.appendChild(text);
-                treeSvg.appendChild(group);
+                text.setAttribute("x", barObj.treeX); text.setAttribute("y", barObj.treeY); text.textContent = barObj.value;
+                group.append(circle, text); treeSvg.appendChild(group);
             });
-
-            // Vẽ mũi tên chỉ dẫn (nếu có)
             treeArrows.forEach(arrow => {
-                const node1 = bars[arrow.from];
-                const node2 = bars[arrow.to];
+                const node1 = bars[arrow.from], node2 = bars[arrow.to];
                 if(node1 && node2) {
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                    
-                    // Vẽ đường cong Bezier giữa 2 node
                     const d = `M ${node1.treeX} ${node1.treeY} Q ${(node1.treeX + node2.treeX)/2 + 30} ${(node1.treeY + node2.treeY)/2} ${node2.treeX} ${node2.treeY}`;
-                    
                     path.setAttribute("d", d);
                     path.setAttribute("class", arrow.type === 'swap' ? 'tree-arrow-swap' : 'tree-arrow-compare');
                     treeSvg.appendChild(path);
@@ -624,141 +509,61 @@
             });
         }
 
-        /* --- DATA GENERATION --- */
-        function generateRandom() {
-            resetSystem();
-            setTimeout(() => {
-                container.innerHTML = "";
-                bars = [];
-                let arr = [];
-                for (let i = 0; i < 15; i++) arr.push(Math.floor(Math.random() * 90) + 10);
-                currentMax = Math.max(...arr);
-                arr.forEach(val => createBarDOM(val, currentMax));
-                statusBoard.innerText = "Đã tạo mảng ngẫu nhiên";
-                addLog("Khởi tạo ngẫu nhiên");
-            }, 150);
-        }
+        function generateRandom() { resetSystem(); setTimeout(() => { container.innerHTML = ""; bars = []; let arr = []; for (let i = 0; i < 15; i++) arr.push(Math.floor(Math.random() * 90) + 10); currentMax = Math.max(...arr); arr.forEach(val => createBarDOM(val, currentMax)); statusBoard.innerText = "Mảng ngẫu nhiên"; addLog("Khởi tạo ngẫu nhiên"); }, 150); }
+        function generateFromInput() { resetSystem(); setTimeout(() => { const val = userInput.value; const arr = val.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x)); if (arr.length > 0) { container.innerHTML = ""; bars = []; currentMax = Math.max(...arr)||1; arr.forEach(x => createBarDOM(x, currentMax)); statusBoard.innerText = "Đã nhập"; addLog("Khởi tạo từ Input"); } else alert("Lỗi nhập!"); }, 150); }
 
-        function generateFromInput() {
-            resetSystem();
-            setTimeout(() => {
-                const val = userInput.value;
-                const arr = val.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
-                if (arr.length > 0) {
-                    container.innerHTML = "";
-                    bars = [];
-                    currentMax = Math.max(...arr);
-                    if (currentMax === 0) currentMax = 1;
-                    arr.forEach(x => createBarDOM(x, currentMax));
-                    statusBoard.innerText = "Đã nhập dữ liệu";
-                    addLog("Khởi tạo từ Input");
-                } else {
-                    alert("Lỗi nhập liệu!");
-                }
-            }, 150);
-        }
-
-        /* --- HELPER VISUALS --- */
         function drawIndicators(assignments) {
             bars.forEach(b => b.indicatorDiv.innerHTML = '');
             for (const [key, index] of Object.entries(assignments)) {
                 if (index >= 0 && index < bars.length) {
-                    const badge = document.createElement("div");
-                    badge.classList.add("arrow-label");
-                    badge.innerText = key;
-                    if (key === 'i') badge.classList.add('idx-i');
-                    else if (key === 'j') badge.classList.add('idx-j');
+                    const badge = document.createElement("div"); badge.classList.add("arrow-label"); badge.innerText = key;
+                    if (key === 'i') badge.classList.add('idx-i'); else if (key === 'j') badge.classList.add('idx-j');
                     else if (key.includes('min') || key.includes('max')) badge.classList.add('idx-min');
-                    else if (key.includes('mid') || key.includes('left') || key.includes('right')) badge.classList.add('idx-mid');
-                    else if (key === 'pivot') badge.classList.add('idx-p');
-                    else badge.style.backgroundColor = '#666';
+                    else if (key.includes('pivot')) badge.classList.add('idx-p'); else badge.classList.add('idx-mid');
                     bars[index].indicatorDiv.appendChild(badge);
                 }
             }
         }
 
-        // Cập nhật hàm Swap để thêm mũi tên trên cây
         async function swapVisual(i, j) {
-            bars[i].bar.classList.add("swapping");
-            bars[j].bar.classList.add("swapping");
-            
-            // Thêm mũi tên SWAP vào cây
+            bars[i].bar.classList.add("swapping"); bars[j].bar.classList.add("swapping");
             treeArrows = [{from: i, to: j, type: 'swap'}];
-            
             await wait();
-
-            let tmp = bars[i].value;
-            bars[i].value = bars[j].value;
-            bars[j].value = tmp;
-            
-            bars[i].label.innerText = bars[i].value;
-            bars[j].label.innerText = bars[j].value;
-            
-            let h1 = bars[i].bar.style.height;
-            let h2 = bars[j].bar.style.height;
-            bars[i].bar.style.height = h2;
-            bars[j].bar.style.height = h1;
-
+            let tmp = bars[i].value; bars[i].value = bars[j].value; bars[j].value = tmp;
+            bars[i].label.innerText = bars[i].value; bars[j].label.innerText = bars[j].value;
+            let h1 = bars[i].bar.style.height; bars[i].bar.style.height = bars[j].bar.style.height; bars[j].bar.style.height = h1;
             await wait();
-            
-            bars[i].bar.classList.remove("swapping");
-            bars[j].bar.classList.remove("swapping");
-            treeArrows = []; // Xóa mũi tên
-        }
-
-        async function overwriteVisual(idx, val) {
-            bars[idx].bar.classList.add("overwrite");
-            await wait();
-            bars[idx].value = val;
-            bars[idx].label.innerText = val;
-            const h = calculateHeight(val, currentMax);
-            bars[idx].bar.style.height = `${h}px`;
-            await wait();
-            bars[idx].bar.classList.remove("overwrite");
-        }
-
-        function shouldSwap(a, b) {
-            return isAscending ? (a > b) : (a < b);
-        }
-
-        // Helper để set mũi tên so sánh trên cây
-        function setTreeCompare(i, j) {
-            treeArrows = [{from: i, to: j, type: 'compare'}];
-        }
-        function clearTreeArrows() {
+            bars[i].bar.classList.remove("swapping"); bars[j].bar.classList.remove("swapping");
             treeArrows = [];
         }
 
-        /* ================= ALGORITHMS ================= */
+        async function overwriteVisual(idx, val) {
+            bars[idx].bar.classList.add("overwrite"); await wait();
+            bars[idx].value = val; bars[idx].label.innerText = val;
+            bars[idx].bar.style.height = `${calculateHeight(val, currentMax)}px`;
+            await wait(); bars[idx].bar.classList.remove("overwrite");
+        }
+
+        function shouldSwap(a, b) { return isAscending ? (a > b) : (a < b); }
+        function setTreeCompare(i, j) { treeArrows = [{from: i, to: j, type: 'compare'}]; }
+        function clearTreeArrows() { treeArrows = []; }
+
+        /* ================= ALGORITHMS (UPDATED FOR BACKWARDS) ================= */
 
         async function runAlgo(name) {
             if (bars.length === 0) { alert("Mảng trống!"); return; }
             if (isRunning) return;
+            if (name === 'heap') await showViewModal(); else { document.body.className = "mode-bar"; currentViewMode = "bar"; }
 
-            // Nếu là Heap, hỏi View Mode trước
-            if (name === 'heap') {
-                await showViewModal();
-                // Sau khi modal đóng, biến currentViewMode đã được set
-            } else {
-                // Các thuật toán khác mặc định chỉ hiện Bar
-                document.body.className = "mode-bar";
-                currentViewMode = "bar";
-            }
-
-            isRunning = true;
-            isPaused = false;
-            document.body.classList.add("running");
-            abortController = new AbortController();
-            currentAlgoName = name;
-            clearLogs(); 
-            addLog("Bắt đầu " + name.toUpperCase());
+            isRunning = true; isPaused = false; document.body.classList.add("running");
+            abortController = new AbortController(); currentAlgoName = name; clearLogs();
+            
+            const dirText = isBackwards ? " (Ngược)" : " (Xuôi)";
+            addLog("Bắt đầu " + name.toUpperCase() + dirText);
 
             document.querySelectorAll('.btn-algo').forEach(b => b.disabled = true);
-            sortOrderSelect.disabled = true;
-            document.getElementById('btn-reset').disabled = false;
-            document.getElementById('btn-pause').disabled = false;
-            document.getElementById('btn-resume').disabled = true;
-            document.getElementById('btn-step').disabled = true;
+            sortOrderSelect.disabled = true; btnTraverse.disabled = true; // Khóa nút đổi hướng
+            document.getElementById('btn-reset').disabled = false; document.getElementById('btn-pause').disabled = false;
 
             try {
                 if (name === 'interchange') await interchangeSort();
@@ -770,181 +575,248 @@
                 if (name === 'merge') await startMergeSort();
                 if (name === 'quick') await startQuickSort();
 
-                statusBoard.innerText = "HOÀN TẤT!";
-                addLog("Hoàn thành thuật toán");
-                clearVisualStyles();
-                bars.forEach(b => b.bar.classList.add("sorted"));
-                treeArrows = []; // Xóa mũi tên cuối cùng
+                statusBoard.innerText = "HOÀN TẤT!"; addLog("Hoàn thành");
+                clearVisualStyles(); bars.forEach(b => b.bar.classList.add("sorted")); treeArrows = [];
                 if (name === 'heap' && currentViewMode !== 'bar') drawHeapTree();
-
-            } catch (err) {
-                if (err.message !== "ABORT") console.error(err);
-            } finally {
+            } catch (err) { if (err.message !== "ABORT") console.error(err); } 
+            finally { 
                 if (isRunning) {
-                    isRunning = false;
-                    document.body.classList.remove("running");
+                    isRunning = false; document.body.classList.remove("running");
                     document.querySelectorAll('.btn-algo').forEach(b => b.disabled = false);
-                    sortOrderSelect.disabled = false;
-                    document.getElementById('btn-pause').disabled = true;
-                    document.getElementById('btn-step').disabled = true;
+                    sortOrderSelect.disabled = false; btnTraverse.disabled = false;
+                    document.getElementById('btn-pause').disabled = true; document.getElementById('btn-step').disabled = true;
                     drawIndicators({});
                 }
             }
         }
 
-        /* --- ALGORITHM IMPLEMENTATIONS --- */
-        
+        // 1. Interchange Sort (Cập nhật duyệt ngược)
         async function interchangeSort() {
             let n = bars.length;
-            for (let i = 0; i < n - 1; i++) {
-                for (let j = i + 1; j < n; j++) {
-                    drawIndicators({ i, j });
-                    bars[i].bar.classList.add("comparing");
-                    bars[j].bar.classList.add("comparing");
-                    await wait();
-                    if (shouldSwap(bars[i].value, bars[j].value)) {
-                        await swapVisual(i, j);
+            if (!isBackwards) {
+                // Xuôi: i chạy từ 0 -> n-2, j từ i+1 -> n-1
+                for (let i = 0; i < n - 1; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        await interchangeStep(i, j);
                     }
-                    bars[i].bar.classList.remove("comparing");
-                    bars[j].bar.classList.remove("comparing");
+                    bars[i].bar.classList.add("sorted");
+                    addLog(`[Xuôi] Xong vị trí ${i}`);
                 }
-                bars[i].bar.classList.add("sorted");
-                addLog(`Duyệt xong vị trí ${i}`);
+                bars[n-1].bar.classList.add("sorted");
+            } else {
+                // Ngược: i chạy từ n-1 -> 1, j từ i-1 -> 0
+                for (let i = n - 1; i > 0; i--) {
+                    for (let j = i - 1; j >= 0; j--) {
+                        await interchangeStep(i, j);
+                    }
+                    bars[i].bar.classList.add("sorted");
+                    addLog(`[Ngược] Xong vị trí ${i}`);
+                }
+                bars[0].bar.classList.add("sorted");
             }
-            bars[n-1].bar.classList.add("sorted");
+        }
+        async function interchangeStep(i, j) {
+            drawIndicators({ i, j });
+            bars[i].bar.classList.add("comparing"); bars[j].bar.classList.add("comparing");
+            await wait();
+            // Logic so sánh: Nếu duyệt ngược, ta đang cố định đích i ở cuối, nên ta muốn đưa phần tử (Max/Min) về i
+            // Nếu duyệt xuôi, ta cố định i ở đầu, đưa phần tử (Min/Max) về i
+            let valI = bars[i].value;
+            let valJ = bars[j].value;
+            let doSwap = false;
+
+            if(!isBackwards) {
+                // Xuôi: Đưa Min (Asc) hoặc Max (Desc) về đầu (i)
+                // Nếu Asc: j < i => Swap. Nếu Desc: j > i => Swap
+                doSwap = isAscending ? (valJ < valI) : (valJ > valI);
+            } else {
+                // Ngược: Đưa Max (Asc) hoặc Min (Desc) về cuối (i)
+                // Nếu Asc: j > i => Swap. Nếu Desc: j < i => Swap
+                // Lưu ý: "j" ở đây là index nhỏ, "i" là index lớn.
+                // Ta so sánh giá trị tại j và i. Nếu Asc, ta muốn i là lớn nhất. Nếu arr[j] > arr[i] -> swap
+                doSwap = isAscending ? (valJ > valI) : (valJ < valI);
+            }
+
+            if (doSwap) await swapVisual(i, j);
+            bars[i].bar.classList.remove("comparing"); bars[j].bar.classList.remove("comparing");
         }
 
+        // 2. Bubble Sort (Cập nhật duyệt ngược)
         async function bubbleSort() {
             let n = bars.length;
-            for (let i = 0; i < n - 1; i++) {
-                for (let j = 0; j < n - i - 1; j++) {
-                    drawIndicators({ i, j: j, next: j+1 });
-                    bars[j].bar.classList.add("comparing");
-                    bars[j+1].bar.classList.add("comparing");
-                    await wait();
-                    if (shouldSwap(bars[j].value, bars[j + 1].value)) {
-                        await swapVisual(j, j + 1);
+            if (!isBackwards) {
+                // Xuôi: Nổi bọt từ trái sang phải (đẩy về cuối)
+                for (let i = 0; i < n - 1; i++) {
+                    for (let j = 0; j < n - i - 1; j++) {
+                        drawIndicators({ i, j: j, next: j+1 });
+                        bars[j].bar.classList.add("comparing"); bars[j+1].bar.classList.add("comparing");
+                        await wait();
+                        if (shouldSwap(bars[j].value, bars[j + 1].value)) await swapVisual(j, j + 1);
+                        bars[j].bar.classList.remove("comparing"); bars[j+1].bar.classList.remove("comparing");
                     }
-                    bars[j].bar.classList.remove("comparing");
-                    bars[j+1].bar.classList.remove("comparing");
+                    bars[n - 1 - i].bar.classList.add("sorted");
+                    addLog(`[Xuôi] Nổi bọt về ${n-1-i}`);
                 }
-                bars[n - 1 - i].bar.classList.add("sorted");
-                addLog(`Nổi bọt phần tử ${n-1-i} về cuối`);
+                bars[0].bar.classList.add("sorted");
+            } else {
+                // Ngược: Nổi bọt từ phải sang trái (đẩy về đầu)
+                for (let i = 0; i < n - 1; i++) {
+                    for (let j = n - 1; j > i; j--) {
+                        drawIndicators({ i, j: j, prev: j-1 });
+                        bars[j].bar.classList.add("comparing"); bars[j-1].bar.classList.add("comparing");
+                        await wait();
+                        // Nếu Asc: muốn số nhỏ về đầu. Nếu arr[j] < arr[j-1] -> swap
+                        // Nếu Desc: muốn số lớn về đầu. Nếu arr[j] > arr[j-1] -> swap
+                        let doSwap = isAscending ? (bars[j].value < bars[j-1].value) : (bars[j].value > bars[j-1].value);
+                        if (doSwap) await swapVisual(j, j - 1);
+                        bars[j].bar.classList.remove("comparing"); bars[j-1].bar.classList.remove("comparing");
+                    }
+                    bars[i].bar.classList.add("sorted");
+                    addLog(`[Ngược] Nổi bọt về ${i}`);
+                }
+                bars[n-1].bar.classList.add("sorted");
             }
-            bars[0].bar.classList.add("sorted");
         }
 
+        // 3. Selection Sort (Cập nhật duyệt ngược)
         async function selectionSort() {
             let n = bars.length;
-            for (let i = 0; i < n; i++) {
-                let bestIdx = i;
-                bars[i].bar.classList.add("special");
-                for (let j = i + 1; j < n; j++) {
-                    drawIndicators({ i, j, [isAscending ? 'min' : 'max']: bestIdx });
-                    bars[j].bar.classList.add("comparing");
-                    await wait();
-                    let condition = isAscending ? (bars[j].value < bars[bestIdx].value) : (bars[j].value > bars[bestIdx].value);
-                    if (condition) {
-                        if (bestIdx !== i) bars[bestIdx].bar.classList.remove("swapping");
-                        bestIdx = j;
-                        bars[bestIdx].bar.classList.add("swapping");
+            if (!isBackwards) {
+                // Xuôi: Tìm min/max cho vị trí đầu (i)
+                for (let i = 0; i < n; i++) {
+                    let bestIdx = i;
+                    bars[i].bar.classList.add("special");
+                    for (let j = i + 1; j < n; j++) {
+                        drawIndicators({ i, j, [isAscending ? 'min' : 'max']: bestIdx });
+                        bars[j].bar.classList.add("comparing"); await wait();
+                        let condition = isAscending ? (bars[j].value < bars[bestIdx].value) : (bars[j].value > bars[bestIdx].value);
+                        if (condition) {
+                            if (bestIdx !== i) bars[bestIdx].bar.classList.remove("swapping");
+                            bestIdx = j; bars[bestIdx].bar.classList.add("swapping");
+                        }
+                        bars[j].bar.classList.remove("comparing");
                     }
-                    bars[j].bar.classList.remove("comparing");
+                    if (bestIdx !== i) await swapVisual(i, bestIdx);
+                    bars[bestIdx].bar.classList.remove("swapping"); bars[i].bar.classList.remove("special"); bars[i].bar.classList.add("sorted");
+                    addLog(`[Xuôi] Chọn xong vị trí ${i}`);
                 }
-                if (bestIdx !== i) await swapVisual(i, bestIdx);
-                bars[bestIdx].bar.classList.remove("swapping");
-                bars[i].bar.classList.remove("special");
-                bars[i].bar.classList.add("sorted");
-                addLog(`Tìm được ${isAscending ? 'Min' : 'Max'} cho vị trí ${i}`);
+            } else {
+                // Ngược: Tìm min/max cho vị trí cuối (i)
+                for (let i = n - 1; i >= 0; i--) {
+                    let bestIdx = i;
+                    bars[i].bar.classList.add("special");
+                    for (let j = i - 1; j >= 0; j--) {
+                        drawIndicators({ i, j, [isAscending ? 'max' : 'min']: bestIdx }); // Note label logic
+                        bars[j].bar.classList.add("comparing"); await wait();
+                        
+                        // Nếu Asc: Cần đưa số Lớn Nhất về cuối (i). So sánh tìm Max.
+                        // Nếu Desc: Cần đưa số Nhỏ Nhất về cuối (i). So sánh tìm Min.
+                        let condition = isAscending ? (bars[j].value > bars[bestIdx].value) : (bars[j].value < bars[bestIdx].value);
+                        
+                        if (condition) {
+                            if (bestIdx !== i) bars[bestIdx].bar.classList.remove("swapping");
+                            bestIdx = j; bars[bestIdx].bar.classList.add("swapping");
+                        }
+                        bars[j].bar.classList.remove("comparing");
+                    }
+                    if (bestIdx !== i) await swapVisual(i, bestIdx);
+                    bars[bestIdx].bar.classList.remove("swapping"); bars[i].bar.classList.remove("special"); bars[i].bar.classList.add("sorted");
+                    addLog(`[Ngược] Chọn xong vị trí ${i}`);
+                }
             }
         }
 
+        // 4. Insertion Sort (Cập nhật duyệt ngược)
         async function insertionSort() {
-            bars[0].bar.classList.add("sorted");
-            for (let i = 1; i < bars.length; i++) {
-                let j = i;
-                while (j > 0) {
-                    drawIndicators({ i, j, prev: j-1 });
-                    bars[j].bar.classList.add("comparing");
-                    bars[j-1].bar.classList.add("comparing");
-                    await wait();
-                    let condition = isAscending ? (bars[j].value < bars[j - 1].value) : (bars[j].value > bars[j - 1].value);
-                    if (condition) {
-                        await swapVisual(j, j - 1);
-                        bars[j].bar.classList.remove("comparing");
-                        bars[j].bar.classList.remove("sorted");
-                        bars[j-1].bar.classList.remove("comparing");
-                        j--;
-                    } else {
-                        bars[j].bar.classList.remove("comparing");
-                        bars[j-1].bar.classList.remove("comparing");
-                        break;
+            let n = bars.length;
+            if(!isBackwards) {
+                // Xuôi: Chèn i vào đoạn [0..i-1]
+                bars[0].bar.classList.add("sorted");
+                for (let i = 1; i < n; i++) {
+                    let j = i;
+                    while (j > 0) {
+                        drawIndicators({ i, j, prev: j-1 });
+                        bars[j].bar.classList.add("comparing"); bars[j-1].bar.classList.add("comparing"); await wait();
+                        let condition = isAscending ? (bars[j].value < bars[j - 1].value) : (bars[j].value > bars[j - 1].value);
+                        if (condition) {
+                            await swapVisual(j, j - 1);
+                            bars[j].bar.classList.remove("comparing"); bars[j].bar.classList.remove("sorted"); bars[j-1].bar.classList.remove("comparing");
+                            j--;
+                        } else {
+                            bars[j].bar.classList.remove("comparing"); bars[j-1].bar.classList.remove("comparing"); break;
+                        }
                     }
+                    for(let k=0; k<=i; k++) bars[k].bar.classList.add("sorted");
+                    addLog(`[Xuôi] Chèn xong ${i}`);
                 }
-                for(let k=0; k<=i; k++) bars[k].bar.classList.add("sorted");
-                addLog(`Chèn phần tử thứ ${i} vào đoạn`);
+            } else {
+                // Ngược: Chèn i vào đoạn [i+1..n-1]
+                bars[n-1].bar.classList.add("sorted");
+                for (let i = n - 2; i >= 0; i--) {
+                    let j = i;
+                    while (j < n - 1) {
+                        drawIndicators({ i, j, next: j+1 });
+                        bars[j].bar.classList.add("comparing"); bars[j+1].bar.classList.add("comparing"); await wait();
+                        // Asc: Nếu j > j+1 -> Swap (số lớn trôi về sau)
+                        // Desc: Nếu j < j+1 -> Swap (số nhỏ trôi về sau)
+                        let condition = isAscending ? (bars[j].value > bars[j + 1].value) : (bars[j].value < bars[j + 1].value);
+                        if (condition) {
+                            await swapVisual(j, j + 1);
+                            bars[j].bar.classList.remove("comparing"); bars[j].bar.classList.remove("sorted"); bars[j+1].bar.classList.remove("comparing");
+                            j++;
+                        } else {
+                            bars[j].bar.classList.remove("comparing"); bars[j+1].bar.classList.remove("comparing"); break;
+                        }
+                    }
+                    for(let k=n-1; k>=i; k--) bars[k].bar.classList.add("sorted");
+                    addLog(`[Ngược] Chèn xong ${i}`);
+                }
             }
         }
 
+        // 5. Shell Sort (Giữ nguyên logic nhưng thêm log hướng)
         async function shellSort() {
             let n = bars.length;
             for (let gap = Math.floor(n/2); gap > 0; gap = Math.floor(gap/2)) {
-                addLog(`Sắp xếp với Gap = ${gap}`);
+                addLog(`Gap = ${gap}`);
                 for (let i = gap; i < n; i++) {
                     let temp = bars[i].value;
-                    let j;
-                    bars[i].bar.classList.add("special");
+                    let j; bars[i].bar.classList.add("special");
                     for (j = i; j >= gap; j -= gap) {
                         drawIndicators({ i, j, cmp: j-gap });
-                        bars[j].bar.classList.add("comparing");
-                        bars[j-gap].bar.classList.add("comparing");
-                        await wait();
+                        bars[j].bar.classList.add("comparing"); bars[j-gap].bar.classList.add("comparing"); await wait();
                         let condition = isAscending ? (bars[j-gap].value > temp) : (bars[j-gap].value < temp);
                         if (condition) {
                             await overwriteVisual(j, bars[j-gap].value);
-                            bars[j].bar.classList.remove("comparing");
-                            bars[j-gap].bar.classList.remove("comparing");
+                            bars[j].bar.classList.remove("comparing"); bars[j-gap].bar.classList.remove("comparing");
                         } else {
-                            bars[j].bar.classList.remove("comparing");
-                            bars[j-gap].bar.classList.remove("comparing");
-                            break;
+                            bars[j].bar.classList.remove("comparing"); bars[j-gap].bar.classList.remove("comparing"); break;
                         }
                     }
-                    await overwriteVisual(j, temp);
-                    bars[i].bar.classList.remove("special");
+                    await overwriteVisual(j, temp); bars[i].bar.classList.remove("special");
                 }
             }
         }
 
+        // 6. Heap Sort (Giữ nguyên vì Heap cấu trúc cố định, chỉ đổi Max/Min heap)
         async function heapSort() {
             let n = bars.length;
             statusBoard.innerText = `Heap: Build ${isAscending ? 'Max' : 'Min'} Heap`;
             for (let i = Math.floor(n / 2) - 1; i >= 0; i--) await heapify(n, i);
-            addLog(`Đã xây dựng xong Heap`);
-            
             statusBoard.innerText = `Heap: Extract ${isAscending ? 'Max' : 'Min'}`;
             for (let i = n - 1; i > 0; i--) {
                 drawIndicators({ [isAscending?'max':'min']: 0, end: i });
-                await swapVisual(0, i);
-                bars[i].bar.classList.add("sorted");
-                addLog(`Đưa phần tử gốc về vị trí ${i}`);
+                await swapVisual(0, i); bars[i].bar.classList.add("sorted");
+                addLog(`Đưa gốc về ${i}`);
                 await heapify(i, 0);
             }
             bars[0].bar.classList.add("sorted");
         }
-
         async function heapify(n, i) {
-            let target = i;
-            let left = 2 * i + 1;
-            let right = 2 * i + 2;
+            let target = i; let left = 2 * i + 1; let right = 2 * i + 2;
             drawIndicators({ root: i, L: left<n?left:-1, R: right<n?right:-1 });
             bars[i].bar.classList.add("special");
-            
-            // Vẽ mũi tên so sánh trên cây nếu tồn tại con
-            if (left < n) setTreeCompare(i, left);
-            
-            await wait();
-            
+            if (left < n) setTreeCompare(i, left); await wait();
             if (isAscending) {
                 if (left < n && bars[left].value > bars[target].value) target = left;
                 if (right < n && bars[right].value > bars[target].value) target = right;
@@ -952,86 +824,70 @@
                 if (left < n && bars[left].value < bars[target].value) target = left;
                 if (right < n && bars[right].value < bars[target].value) target = right;
             }
-
-            clearTreeArrows(); // Xóa mũi tên so sánh
-
+            clearTreeArrows();
             if (target != i) {
-                drawIndicators({ swap: target });
-                await swapVisual(i, target);
-                bars[i].bar.classList.remove("special");
-                await heapify(n, target);
+                drawIndicators({ swap: target }); await swapVisual(i, target);
+                bars[i].bar.classList.remove("special"); await heapify(n, target);
             } else bars[i].bar.classList.remove("special");
         }
 
-        async function startMergeSort() {
-            await mergeSortRecursive(0, bars.length - 1);
-        }
-
+        // 7. Merge Sort (Duyệt ngược = Đảo thứ tự gọi đệ quy)
+        async function startMergeSort() { await mergeSortRecursive(0, bars.length - 1); }
         async function mergeSortRecursive(l, r) {
             if (l >= r) return;
             const m = l + Math.floor((r - l) / 2);
-            await mergeSortRecursive(l, m);
-            await mergeSortRecursive(m + 1, r);
-            await merge(l, m, r);
-            addLog(`Merge đoạn [${l}..${m}] và [${m+1}..${r}]`);
+            if (!isBackwards) {
+                await mergeSortRecursive(l, m); await mergeSortRecursive(m + 1, r);
+            } else {
+                // Ngược: Xử lý bên phải trước
+                await mergeSortRecursive(m + 1, r); await mergeSortRecursive(l, m);
+            }
+            await merge(l, m, r); addLog(`Merge [${l}..${m}] & [${m+1}..${r}]`);
         }
-
         async function merge(l, m, r) {
             for(let k=l; k<=r; k++) bars[k].bar.classList.add("comparing");
-            let n1 = m - l + 1, n2 = r - m;
-            let L = [], R = [];
+            let n1 = m - l + 1, n2 = r - m; let L = [], R = [];
             for (let i = 0; i < n1; i++) L.push(bars[l + i].value);
             for (let j = 0; j < n2; j++) R.push(bars[m + 1 + j].value);
             let i = 0, j = 0, k = l;
             while (i < n1 && j < n2) {
-                drawIndicators({ left: l+i, right: m+1+j, target: k });
-                await wait();
+                drawIndicators({ left: l+i, right: m+1+j, target: k }); await wait();
                 let takeLeft = isAscending ? (L[i] <= R[j]) : (L[i] >= R[j]);
-                if (takeLeft) { await overwriteVisual(k, L[i]); i++; }
-                else { await overwriteVisual(k, R[j]); j++; }
-                k++;
+                if (takeLeft) { await overwriteVisual(k, L[i]); i++; } else { await overwriteVisual(k, R[j]); j++; } k++;
             }
             while (i < n1) { drawIndicators({ left: l+i, target: k }); await overwriteVisual(k, L[i]); i++; k++; }
             while (j < n2) { drawIndicators({ right: m+1+j, target: k }); await overwriteVisual(k, R[j]); j++; k++; }
             for(let k=l; k<=r; k++) bars[k].bar.classList.remove("comparing");
         }
 
-        async function startQuickSort() {
-            await quickSort(0, bars.length - 1);
-        }
-
+        // 8. Quick Sort (Duyệt ngược = Đảo thứ tự đệ quy)
+        async function startQuickSort() { await quickSort(0, bars.length - 1); }
         async function quickSort(low, high) {
             if (low < high) {
                 let pi = await partition(low, high);
-                bars[pi].bar.classList.add("sorted");
-                addLog(`Phân hoạch xong, Pivot tại ${pi}`);
-                await quickSort(low, pi - 1);
-                await quickSort(pi + 1, high);
-            } else if (low === high) bars[low].bar.classList.add("sorted");
+                bars[pi].bar.classList.add("sorted"); addLog(`Pivot tại ${pi}`);
+                if (!isBackwards) {
+                    await quickSort(low, pi - 1); await quickSort(pi + 1, high);
+                } else {
+                    await quickSort(pi + 1, high); await quickSort(low, pi - 1);
+                }
+            } else if (low === high && low >= 0) bars[low].bar.classList.add("sorted");
         }
-
         async function partition(low, high) {
-            let pivot = bars[high].value;
-            bars[high].bar.classList.add("special");
+            let pivot = bars[high].value; bars[high].bar.classList.add("special");
             let i = (low - 1);
             for (let j = low; j <= high - 1; j++) {
                 drawIndicators({ i, j, pivot: high });
-                bars[j].bar.classList.add("comparing");
-                await wait();
+                bars[j].bar.classList.add("comparing"); await wait();
                 let condition = isAscending ? (bars[j].value < pivot) : (bars[j].value > pivot);
-                if (condition) {
-                    i++;
-                    await swapVisual(i, j);
-                }
+                if (condition) { i++; await swapVisual(i, j); }
                 bars[j].bar.classList.remove("comparing");
             }
-            await swapVisual(i + 1, high);
-            bars[high].bar.classList.remove("special");
+            await swapVisual(i + 1, high); bars[high].bar.classList.remove("special");
             return (i + 1);
         }
 
         generateRandom();
-
     </script>
 </body>
 </html>
